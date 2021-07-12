@@ -69,6 +69,10 @@ namespace Oxide.Plugins
         private Plugin ServerArmour;
         [PluginReference]
         private Plugin Godmode;
+        [PluginReference]
+        private Plugin CHelpers;
+        [PluginReference]
+        private Plugin Vanish;
 
 #pragma warning restore IDE0044, CS0649
         #endregion Plugin References
@@ -1098,22 +1102,22 @@ namespace Oxide.Plugins
             aUIObj.AddElement(headerPanel, CTabMenuHeaderLbl);
             aUIObj.AddElement(headerPanel, CTabMenuCloseBtn);
             // Add the tab menu buttons
+            // AddTabMenuBtn(
+            //     ref aUIObj, tabBtnPanel, lang.GetMessage("Main Tab Text", this, aUIObj.PlayerIdString), $"{CSwitchUiCmd} {CCmdArgMain}", 0,
+            //     aPageType == UiPage.Main
+            // );
             AddTabMenuBtn(
-                ref aUIObj, tabBtnPanel, lang.GetMessage("Main Tab Text", this, aUIObj.PlayerIdString), $"{CSwitchUiCmd} {CCmdArgMain}", 0,
-                aPageType == UiPage.Main
-            );
-            AddTabMenuBtn(
-                ref aUIObj, tabBtnPanel, lang.GetMessage("Online Player Tab Text", this, aUIObj.PlayerIdString), $"{CSwitchUiCmd} {CCmdArgPlayersOnline} 0", 1,
+                ref aUIObj, tabBtnPanel, lang.GetMessage("Online Player Tab Text", this, aUIObj.PlayerIdString), $"{CSwitchUiCmd} {CCmdArgPlayersOnline} 0", 0,
                 aPageType == UiPage.PlayersOnline
             );
             AddTabMenuBtn(
                 ref aUIObj, tabBtnPanel, lang.GetMessage("Offline Player Tab Text", this, aUIObj.PlayerIdString), $"{CSwitchUiCmd} {CCmdArgPlayersOffline} 0",
-                2, aPageType == UiPage.PlayersOffline
+                1, aPageType == UiPage.PlayersOffline
             );
-            AddTabMenuBtn(
-                ref aUIObj, tabBtnPanel, lang.GetMessage("Banned Player Tab Text", this, aUIObj.PlayerIdString), $"{CSwitchUiCmd} {CCmdArgPlayersBanned} 0", 3,
-                aPageType == UiPage.PlayersBanned
-            );
+            // AddTabMenuBtn(
+            //     ref aUIObj, tabBtnPanel, lang.GetMessage("Banned Player Tab Text", this, aUIObj.PlayerIdString), $"{CSwitchUiCmd} {CCmdArgPlayersBanned} 0", 3,
+            //     aPageType == UiPage.PlayersBanned
+            // );
             LogDebug("Built the tab menu");
         }
 
@@ -2829,7 +2833,7 @@ namespace Oxide.Plugins
 
             LogInfo($"{player.displayName}: Opened the menu");
             CuiHelper.AddUi(player, CuiHelper.ToJson(new CuiElementContainer { { CBasePanel, Cui.ParentOverlay, CBasePanelName } }, false));
-            BuildUI(player, UiPage.Main);
+            BuildUI(player, UiPage.PlayersOnline);
         }
 
         [Command(CCloseUiCmd)]
@@ -3172,9 +3176,13 @@ namespace Oxide.Plugins
         private void PlayerAdministrationViewBackpackCallback(IPlayer aPlayer, string aCommand, string[] aArgs) {
             if (aPlayer.IsServer)
                 return;
+                
+            BasePlayer player = BasePlayer.Find(aPlayer.Id);
+            
+            if (CHelpers == null || !CHelpers.Call<bool>("IsModoActive", player))
+                return;
 
             LogDebug("PlayerAdministrationViewBackpackCallback was called");
-            BasePlayer player = BasePlayer.Find(aPlayer.Id);
             ulong targetId;
 
             if (!VerifyPermission(ref player, CPermBackpacks, true) || !GetTargetFromArg(aArgs, out targetId))
@@ -3189,9 +3197,13 @@ namespace Oxide.Plugins
         private void PlayerAdministrationViewInventoryCallback(IPlayer aPlayer, string aCommand, string[] aArgs) {
             if (aPlayer.IsServer)
                 return;
+                
+            BasePlayer player = BasePlayer.Find(aPlayer.Id);
+
+            if (CHelpers == null || !CHelpers.Call<bool>("IsModoActive", player))
+                return;
 
             LogDebug("PlayerAdministrationViewInventoryCallback was called");
-            BasePlayer player = BasePlayer.Find(aPlayer.Id);
             ulong targetId;
 
             if (!VerifyPermission(ref player, CPermInventory, true) || !GetTargetFromArg(aArgs, out targetId))
@@ -3245,6 +3257,11 @@ namespace Oxide.Plugins
 
             if (!GetTargetFromArg(aArgs, out targetId))
                 return;
+                
+            BasePlayer player = BasePlayer.Find(aPlayer.Id);
+
+            if (CHelpers == null || !CHelpers.Call<bool>("IsModoActive", player))
+                return;
 
             if (aPlayer.IsServer) {
                 if (permission.UserHasPermission(targetId.ToString(), CPermProtectReset)) {
@@ -3255,8 +3272,6 @@ namespace Oxide.Plugins
                 (BasePlayer.FindByID(targetId) ?? BasePlayer.FindSleeping(targetId))?.inventory.Strip();
                 LogInfo($"{aPlayer.Name}: Cleared the inventory of user ID {targetId}");
             } else {
-                BasePlayer player = BasePlayer.Find(aPlayer.Id);
-
                 if (!VerifyPermission(ref player, CPermClearInventory, true))
                     return;
 
@@ -3311,6 +3326,11 @@ namespace Oxide.Plugins
 
             if (!GetTargetFromArg(aArgs, out targetId))
                 return;
+                
+            BasePlayer player = BasePlayer.Find(aPlayer.Id);
+
+            if (CHelpers == null || !CHelpers.Call<bool>("IsModoActive", player))
+                return;
 
             if (aPlayer.IsServer) {
                 if (permission.UserHasPermission(targetId.ToString(), CPermProtectReset)) {
@@ -3321,8 +3341,6 @@ namespace Oxide.Plugins
                 (BasePlayer.FindByID(targetId) ?? BasePlayer.FindSleeping(targetId))?.metabolism.Reset();
                 LogInfo($"{aPlayer.Name}: Reset the metabolism of user ID {targetId}");
             } else {
-                BasePlayer player = BasePlayer.Find(aPlayer.Id);
-
                 if (!VerifyPermission(ref player, CPermResetMetabolism, true))
                     return;
 
@@ -3344,6 +3362,9 @@ namespace Oxide.Plugins
             BasePlayer player = null;
 
             if (!GetTargetFromArg(aArgs, out targetId))
+                return;
+                
+            if (CHelpers == null || !CHelpers.Call<bool>("IsModoActive", player))
                 return;
 
             if (!aPlayer.IsServer) {
@@ -3379,7 +3400,13 @@ namespace Oxide.Plugins
             BasePlayer player = BasePlayer.Find(aPlayer.Id);
             ulong targetId;
 
-            if (aPlayer.IsServer || !VerifyPermission(ref player, CPermTeleport, true) || !GetTargetFromArg(aArgs, out targetId))
+            if (aPlayer.IsServer 
+            || !VerifyPermission(ref player, CPermTeleport, true) 
+            || !GetTargetFromArg(aArgs, out targetId) 
+            ||  CHelpers == null 
+            || !CHelpers.Call<bool>("IsModoActive", player)
+            || Vanish == null
+            || !Vanish.Call<bool>("IsInvisible", player))
                 return;
 
             BasePlayer targetPlayer = BasePlayer.FindByID(targetId) ?? BasePlayer.FindSleeping(targetId);
@@ -3403,7 +3430,7 @@ namespace Oxide.Plugins
             BasePlayer player = BasePlayer.Find(aPlayer.Id);
             ulong targetId;
 
-            if (!VerifyPermission(ref player, CPermTeleport, true) || !GetTargetFromArg(aArgs, out targetId))
+            if (!VerifyPermission(ref player, CPermTeleport, true) || !GetTargetFromArg(aArgs, out targetId) ||  CHelpers == null || !CHelpers.Call<bool>("IsModoActive", player))
                 return;
 
             BasePlayer targetPlayer = BasePlayer.FindByID(targetId) ?? BasePlayer.FindSleeping(targetId);
@@ -3468,6 +3495,11 @@ namespace Oxide.Plugins
             if (!GetTargetAmountFromArg(aArgs, out targetId, out amount))
                 return;
 
+            BasePlayer player = BasePlayer.Find(aPlayer.Id);
+
+            if (CHelpers == null || !CHelpers.Call<bool>("IsModoActive", player))
+                return;
+
             if (aPlayer.IsServer) {
                 if (permission.UserHasPermission(targetId.ToString(), CPermProtectHurt)) {
                     aPlayer.Reply(lang.GetMessage("Protection Active Text", this));
@@ -3477,8 +3509,6 @@ namespace Oxide.Plugins
                 (BasePlayer.FindByID(targetId) ?? BasePlayer.FindSleeping(targetId))?.Hurt(amount);
                 LogInfo($"{aPlayer.Name}: Hurt user ID {targetId} for {amount} points");
             } else {
-                BasePlayer player = BasePlayer.Find(aPlayer.Id);
-
                 if (!VerifyPermission(ref player, CPermHurt, true))
                     return;
 
@@ -3501,6 +3531,11 @@ namespace Oxide.Plugins
             if (!GetTargetFromArg(aArgs, out targetId))
                 return;
 
+            BasePlayer player = BasePlayer.Find(aPlayer.Id);
+
+            if (CHelpers == null || !CHelpers.Call<bool>("IsModoActive", player))
+                return;
+
             if (aPlayer.IsServer) {
                 if (permission.UserHasPermission(targetId.ToString(), CPermProtectKill)) {
                     aPlayer.Reply(lang.GetMessage("Protection Active Text", this));
@@ -3510,8 +3545,6 @@ namespace Oxide.Plugins
                 (BasePlayer.FindByID(targetId) ?? BasePlayer.FindSleeping(targetId))?.Die();
                 LogInfo($"{aPlayer.Name}: Killed user ID {targetId}");
             } else {
-                BasePlayer player = BasePlayer.Find(aPlayer.Id);
-
                 if (!VerifyPermission(ref player, CPermKill, true))
                     return;
 
@@ -3536,6 +3569,9 @@ namespace Oxide.Plugins
                 return;
 
             BasePlayer targetPlayer = BasePlayer.FindByID(targetId) ?? BasePlayer.FindSleeping(targetId);
+
+            if (CHelpers == null || !CHelpers.Call<bool>("IsModoActive", targetPlayer))
+                return;
 
             if (aPlayer.IsServer) {
                 if (targetPlayer.IsWounded())
